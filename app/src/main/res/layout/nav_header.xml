@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="200dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="@color/cardview_light_background"
+    android:gravity="bottom"
+    android:padding="16dp">
+
+    <ImageView
+        android:layout_marginTop="20dp"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:id="@+id/nav_header_image"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:contentDescription="@string/app_name"
+        android:src="@drawable/profile_" />
+
+    <TextView
+        android:layout_marginTop="10dp"
+        app:layout_constraintRight_toRightOf="@+id/nav_header_image"
+        app:layout_constraintLeft_toLeftOf="@+id/nav_header_image"
+        app:layout_constraintTop_toBottomOf="@+id/nav_header_image"
+        android:id="@+id/nav_header_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Prem Singh"
+        android:textColor="@android:color/black"
+        android:textSize="18sp" />
+</androidx.constraintlayout.widget.ConstraintLayout>
