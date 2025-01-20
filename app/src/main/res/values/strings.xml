@@ -5,4 +5,13 @@
     <string name="close_drawer">Close navigation drawer</string>
     <string name="user">Prem Singh\n</string>
 
+    <string-array name="categories">
+        <item>Select Category</item>
+        <item>Food</item>
+        <item>Shopping</item>
+        <item>Vegetable</item>
+        <item>Bills</item>
+        <item>Rent</item>
+    </string-array>
+
 </resources>

@@ -1,90 +1,101 @@
 package com.example.daily_expense_tracker_app.view
 
-import android.app.Activity
 import android.app.DatePickerDialog
-import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.icu.util.Calendar
-import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
-import android.view.LayoutInflater
 import android.view.MenuItem
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.appcompat.app.ActionBarDrawerToggle
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.room.Room
-import com.bumptech.glide.Glide
 import com.example.daily_expense_tracker_app.R
-import com.example.daily_expense_tracker_app.database.AppDatabase
 import com.example.daily_expense_tracker_app.database.Expense
 import com.example.daily_expense_tracker_app.databinding.ActivityMainBinding
 import com.example.daily_expense_tracker_app.view.adapter.ExpenseAdapter
 import com.example.daily_expense_tracker_app.viewmodel.ExpenseViewModel
-import com.example.daily_expense_tracker_app.viewmodel.ExpenseViewModelFactory
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private var latestTmpUri: Uri? = null
-    var expenseAmount_str: String = ""
-    var expenseCategory_str: String = ""
-    var expenseDate_str: String = ""
-    var expenseDescription_str: String = ""
+    private var expenseAmount_str: String = ""
+    private var expenseCategory_str: String = ""
+    private var expenseDate_str: String = ""
+    private var expenseDescription_str: String = ""
     private lateinit var expenseAdapter: ExpenseAdapter
     private var mainlist: ArrayList<Expense>? = null
     private lateinit var expenseViewModel: ExpenseViewModel
     private lateinit var toggle: ActionBarDrawerToggle
+    private lateinit var bottomSheetBehavior: BottomSheetBehavior<LinearLayout>
+    private var count :Int = 0
+    private var id :Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         mainlist = ArrayList()
-      //  mainlist!!.add(1, Expense(1,"450","Rent","17/09/2023","Rent",""))
-        RecyclerViewList()
+        //  mainlist!!.add(1, Expense(1,"450","Rent","17/09/2023","Rent",""))
+        recyclerViewList()
+
+        // Get the BottomSheetBehavior
+        bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheetMain)
+
+        // Set initial state
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
 
         // initializing our view modal.
         expenseViewModel = ViewModelProvider(
-            this,
-            ViewModelProvider.AndroidViewModelFactory.getInstance(application)
+            this, ViewModelProvider.AndroidViewModelFactory.getInstance(application)
         ).get(ExpenseViewModel::class.java)
 
         expenseViewModel.allExpenses?.observe(this, Observer { expenses ->
+            mainlist!!.clear()
             expenseAdapter.setExpenses(expenses)
+            mainlist = expenses as ArrayList<Expense>
+            var totalAmount = 0.0
+            for (expense in expenses) {
+                val amount = expense.amount.toDoubleOrNull() ?: 0.0
+                totalAmount += amount
+            }
+            binding.monthlyAmountTxt.text = "Total monthly expense: ₹$totalAmount"
         })
 
 
-        binding.profileImageView.setOnClickListener {
-            openCamera()
+        binding.addExpenseButton.setOnClickListener {
+            count=0
+            clearData()
+            toggleBottomSheet()
         }
 
-        binding.addExpenseButton.setOnClickListener {
+        binding.AddExpenseDetails.setOnClickListener {
             if (validateInputs()) {
                 // Proceed with saving the expense
-                addNewExpense()
-                binding.expenseAmountEt.text?.clear()
-                binding.expenseCategoryEt.text?.clear()
-                binding.expenseDateEt.text = "Expense Date"
-                binding.expenseDescriptionEt.text?.clear()
-                Toast.makeText(this, "Expense added successfully", Toast.LENGTH_SHORT).show()
-
+                if (count ==0) {
+                    addNewExpense()
+                    clearData()
+                    Toast.makeText(this, "Expense added successfully", Toast.LENGTH_SHORT).show()
+                    toggleBottomSheet()
+                }else {
+                    updateExpense()
+                    clearData()
+                    Toast.makeText(this, "Expense Update successfully", Toast.LENGTH_SHORT).show()
+                    toggleBottomSheet()
+                }
             }
         }
+        binding
 
         binding.expenseDateEt.setOnClickListener {
             showDatePickerDialog()
@@ -109,22 +120,83 @@ class MainActivity : AppCompatActivity() {
             when (menuItem.itemId) {
                 R.id.nav_home -> {
                     val intent = Intent(this, MainActivity::class.java)
-                    startActivity(intent)                }
+                    startActivity(intent)
+                }
+
                 R.id.nav_profile -> {
                     // Launch ProfileActivity
                     val intent = Intent(this, ProfileActivity::class.java)
                     startActivity(intent)
                 }
-              /*  R.id.nav_settings -> {
-                    Toast.makeText(this, "Settings selected", Toast.LENGTH_SHORT).show()
-                }*/
             }
             // Close the drawer after selection
             drawerLayout.closeDrawers()
             true
         }
+
+        //spinner adapter
+        val adapter = ArrayAdapter.createFromResource(
+            this, R.array.categories, android.R.layout.simple_spinner_item
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinner.adapter = adapter
+        binding.spinnerFilter.adapter = adapter
+        binding.spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                val selectedItem = parent.getItemAtPosition(position).toString()
+                expenseCategory_str=selectedItem
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                // Optional: Handle cases where no item is selected
+            }
+        }
+
+        //for filter by category
+        binding.spinnerFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                val selectedCategory = parent.getItemAtPosition(position).toString()
+                var totalAmount = 0.0
+
+                val filteredExpenses = if (selectedCategory == "Select Category") {
+                    expenseAdapter.setExpenses(mainlist!!)
+                    for (expense in mainlist!!) {
+                        val amount = expense.amount.toDoubleOrNull() ?: 0.0
+                        totalAmount += amount
+                    }
+                } else {
+                 var filterList =  filterByCategory(mainlist!!, selectedCategory)
+                    this@MainActivity.expenseAdapter.setExpenses(filterList!!)
+                    for (expense in filterList) {
+                        val amount = expense.amount.toDoubleOrNull() ?: 0.0
+                        totalAmount += amount
+                    }
+                }
+                binding.monthlyAmountTxt.text = "Total monthly expense: ₹$totalAmount"
+
+                // Update the RecyclerView
+                expenseAdapter.notifyDataSetChanged()
+                //Toast.makeText(this@MainActivity, "Selected Category: $selectedCategory", Toast.LENGTH_SHORT).show()
+
+
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                // Optional: Handle cases where no item is selected
+            }
+        }
     }
 
+    fun filterByCategory(expenses: List<Expense>, category: String): List<Expense> {
+        return expenses.filter { it.category == category }
+    }
+
+    private fun clearData(){
+        binding.expenseAmountEt.text?.clear()
+        binding.expenseCategoryEt.text?.clear()
+        binding.expenseDateEt.text = "Expense Date"
+        binding.expenseDescriptionEt.text?.clear()
+    }
     // Handle menu icon click
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return if (toggle.onOptionsItemSelected(item)) {
@@ -138,35 +210,69 @@ class MainActivity : AppCompatActivity() {
         // Example: Add a new expense
         val newExpense = Expense(
             id = 0, // Let Room handle the auto-generated ID
-            amount = expenseAmount_str,
-            category = expenseCategory_str,
-           // date = System.currentTimeMillis().toString(),
-            date = expenseDate_str,
-            description = expenseDescription_str,
-            imagePath = ""
+            amount = expenseAmount_str, category = expenseCategory_str,
+            // date = System.currentTimeMillis().toString(),
+            date = expenseDate_str, description = expenseDescription_str, imagePath = ""
         )
         expenseViewModel.insert(newExpense)
     }
 
+    // update the expense
+    private fun updateExpense() {
+        val updateExpense = Expense(
+            id = id,
+            amount = expenseAmount_str, category = expenseCategory_str,
+            date = expenseDate_str, description = expenseDescription_str, imagePath = ""
+        )
+        expenseViewModel.update(updateExpense)
+    }
+
+    //delete the expense
+    private fun showExpenseDetails(expense: Expense) {
+        expenseViewModel.delete(expense)
+        Toast.makeText(this, "Expense deleted successfully", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun toggleBottomSheet() {
+        if (bottomSheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED) {
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+        } else {
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        }
+
+    }
+
     //For Recyclerview List
-    private fun RecyclerViewList() {
+    private fun recyclerViewList() {
         // Set LayoutManager
         binding.expenseRecyclerView.layoutManager = LinearLayoutManager(this)
 
-        // Initialize Adapter
-        expenseAdapter = ExpenseAdapter{expense ->
-            showExpenseDetails(expense)
-        }
+        // Initialize the adapter
+        expenseAdapter = ExpenseAdapter(
+            onItemClick = { expense,position ->
+                //call bottom sheet function
+                toggleBottomSheet()
+                // set all value in textview
+                binding.expenseAmountEt.setText(expense.amount)
+               // binding.expenseCategoryEt.setText(expense.category)
+                binding.expenseDateEt.setText(expense.date)
+                binding.expenseDescriptionEt.setText(expense.description)
+                //setvalue in spinner
+                val adapter = binding.spinner.adapter as ArrayAdapter<String>
+                val position = adapter.getPosition(expense.category)
+                binding.spinner.setSelection(position)
+                id = expense.id
+                count=1
+            },
+            onItemClickDelete = { expense ->
+                showExpenseDetails(expense)
+            }
+        )
+
+
         // Set Adapter to RecyclerView
         binding.expenseRecyclerView.adapter = expenseAdapter
         expenseAdapter.setExpenses(mainlist!!)
-    }
-
-    // Function to handle item clicks
-    private fun showExpenseDetails(expense: Expense) {
-        //delete the expense
-        expenseViewModel.delete(expense)
-        Toast.makeText(this, "Expense deleted successfully", Toast.LENGTH_SHORT).show()
     }
 
     // Function to validate input fields
@@ -175,29 +281,29 @@ class MainActivity : AppCompatActivity() {
 
         // Clear previous error messages
         binding.expenseAmountEt.error = null
-        binding.expenseCategoryEt.error = null
+       // binding.expenseCategoryEt.error = null
         binding.expenseDateEt.error = null
         binding.expenseDescriptionEt.error = null
 
         // Validate Expense Amount
         val expenseAmount = binding.expenseAmountEt.text.toString()
-        expenseAmount_str=expenseAmount
+        expenseAmount_str = expenseAmount
         if (expenseAmount.isEmpty()) {
             binding.expenseAmountEt.error = "Expense Amount cannot be empty"
             isValid = false
         }
 
         // Validate Expense Category
-        val expenseCategory = binding.expenseCategoryEt.text.toString()
-        expenseCategory_str=expenseCategory
+     /*   val expenseCategory = binding.expenseCategoryEt.text.toString()
+        expenseCategory_str = expenseCategory
         if (expenseCategory.isEmpty()) {
             binding.expenseCategoryEt.error = "Expense Category cannot be empty"
             isValid = false
-        }
+        }*/
 
         // Validate Expense Date
         val expenseDate = binding.expenseDateEt.text.toString()
-        expenseDate_str=expenseDate
+        expenseDate_str = expenseDate
         if (expenseDate.isEmpty()) {
             binding.expenseDateEt.error = "Expense Date cannot be empty"
             isValid = false
@@ -205,7 +311,7 @@ class MainActivity : AppCompatActivity() {
 
         // Validate Expense Description
         val expenseDescription = binding.expenseDescriptionEt.text.toString()
-        expenseDescription_str=expenseDescription
+        expenseDescription_str = expenseDescription
         if (expenseDescription.isEmpty()) {
             binding.expenseDescriptionEt.error = "Expense Description cannot be empty"
             isValid = false
@@ -215,7 +321,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDatePickerDialog() {
-         val calendar: Calendar = Calendar.getInstance()
+        val calendar: Calendar = Calendar.getInstance()
         val datePickerDialog = DatePickerDialog(
             this,
             { _, year, month, dayOfMonth ->
@@ -225,7 +331,8 @@ class MainActivity : AppCompatActivity() {
                 calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
 
                 // Format the date
-                val formattedDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(calendar.time)
+                val formattedDate =
+                    SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(calendar.time)
                 Log.d("MainActivity", "Selected Date: $formattedDate")
                 binding.expenseDateEt.setText(formattedDate)
             },
@@ -235,69 +342,5 @@ class MainActivity : AppCompatActivity() {
         )
         datePickerDialog.show()
     }
-
-
-    //for camera
-    private val cameraLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val imageBitmap = result.data?.extras?.get("data") as? Bitmap
-                imageBitmap?.let { binding.profileImageView.setImageBitmap(it) }
-            } else {
-                Toast.makeText(this, "Operation cancelled", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-    private val galleryLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val selectedImageUri = result.data?.data
-                selectedImageUri?.let { binding.profileImageView.setImageURI(it) }
-            } else {
-                Toast.makeText(this, "Operation cancelled", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-    private fun openCamera() {
-        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        cameraLauncher.launch(cameraIntent)
-    }
-
-    private fun openGallery() {
-        val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        galleryLauncher.launch(galleryIntent)
-    }
-
-
-    //CustomDialog
-/*
-    fun showCustomDialog(context: Context) {
-        // Inflate the custom layout
-        val dialogView = LayoutInflater.from(context).inflate(R.layout.custom_dialog, null)
-
-        // Create the dialog builder
-        val dialogBuilder = AlertDialog.Builder(context)
-            .setView(dialogView)
-            .setCancelable(true)
-
-        // Create the dialog
-        val dialog = dialogBuilder.create()
-
-        // Initialize UI components
-        val dialogTitle: TextView = dialogView.findViewById(R.id.dialogTitle)
-        val dialogInput: EditText = dialogView.findViewById(R.id.dialogInput)
-
-        // Set button click listener
-        dialogButton.setOnClickListener {
-            val inputText = dialogInput.text.toString()
-            // Handle the input text as needed
-            dialog.dismiss() // Close the dialog
-        }
-
-        // Show the dialog
-        dialog.show()
-    }
-*/
-
 
 }
