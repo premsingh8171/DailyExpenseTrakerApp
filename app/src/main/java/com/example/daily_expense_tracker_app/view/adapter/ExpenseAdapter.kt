@@ -64,6 +64,8 @@ class ExpenseAdapter(
                 img.setImageResource(R.drawable.water_bill)
             }else if (expense.category.equals("Rent")){
                 img.setImageResource(R.drawable.house)
+            }else if (expense.category.equals("Travel")){
+                img.setImageResource(R.drawable.travel)
             }
         }
     }

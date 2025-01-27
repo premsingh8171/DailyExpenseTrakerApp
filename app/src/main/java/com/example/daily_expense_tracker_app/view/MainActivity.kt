@@ -141,6 +141,7 @@ class MainActivity : AppCompatActivity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinner.adapter = adapter
         binding.spinnerFilter.adapter = adapter
+        expenseCategory_str = binding.spinnerFilter.setSelection(0).toString()
         binding.spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
                 val selectedItem = parent.getItemAtPosition(position).toString()
@@ -196,6 +197,8 @@ class MainActivity : AppCompatActivity() {
         binding.expenseCategoryEt.text?.clear()
         binding.expenseDateEt.text = "Expense Date"
         binding.expenseDescriptionEt.text?.clear()
+        expenseCategory_str = binding.spinnerFilter.setSelection(0).toString()
+
     }
     // Handle menu icon click
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -294,12 +297,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Validate Expense Category
-     /*   val expenseCategory = binding.expenseCategoryEt.text.toString()
-        expenseCategory_str = expenseCategory
-        if (expenseCategory.isEmpty()) {
-            binding.expenseCategoryEt.error = "Expense Category cannot be empty"
+       // val expenseCategory = binding.expenseCategoryEt.text.toString()
+      //  expenseCategory_str = expenseCategory
+        if (expenseCategory_str.isEmpty() && expenseCategory_str.equals("Select Category")) {
+            binding.expenseCategoryEt.error = "Expense Category cannot be select"
             isValid = false
-        }*/
+        }
 
         // Validate Expense Date
         val expenseDate = binding.expenseDateEt.text.toString()
